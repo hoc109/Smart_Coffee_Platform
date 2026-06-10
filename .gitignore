@@ -1,0 +1,31 @@
+# ===== Backend (Spring Boot) =====
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/.idea/
+backend/*.iws
+backend/*.iml
+backend/*.ipr
+backend/uploads/
+
+# ===== Frontend (Next.js) =====
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# ===== Thông tin nhạy cảm =====
+**/.env
+**/.env.*
+**/application.properties
+**/application-prod.properties
+
+# ===== Upload folder =====
+uploads/
+
+# ===== IDE & Hệ thống =====
+.vscode/
+.DS_Store
+*.pem
