@@ -27,10 +27,13 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 || error.response?.status === 403) {
-      Cookies.remove('token');
-      Cookies.remove('role');
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+      const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
+      if (!isLoginPage) {
+        Cookies.remove('token');
+        Cookies.remove('role');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
