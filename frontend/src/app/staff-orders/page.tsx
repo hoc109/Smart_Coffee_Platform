@@ -1,46 +1,25 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import axiosInstance from "@/lib/axios";
 import {
-  ClipboardList, Search, Eye, X,
-  CalendarDays, User, Hash, DollarSign, Coffee
+  CalendarDays,
+  ClipboardList,
+  Coffee,
+  DollarSign,
+  Eye,
+  Hash,
+  Search,
+  User,
+  X,
 } from "lucide-react";
-
-// ===================== Interfaces =====================
-interface CafeTable {
-  id: number;
-  name: string;
-  status: string;
-}
-
-interface Account {
-  id: number;
-  username: string;
-  role: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-}
-
-interface OrderDetailItem {
-  id: number;
-  product: Product;
-  quantity: number;
-  price: number;
-}
-
-interface OrderItem {
-  id: number;
-  cafeTable: CafeTable | null;
-  account: Account | null;
-  orderDetails: OrderDetailItem[];
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-}
+import { useState } from "react";
+import {
+  DataUpdatedToast,
+  MutatingOverlay,
+  SyncingIndicator,
+  useSmartOverlay,
+} from "@/components/ui/LoadingOverlay";
+import type { OrderItem } from "@/hooks/useStaffOrdersData";
+import { useStaffOrdersData } from "@/hooks/useStaffOrdersData";
+import axiosInstance from "@/lib/axios";
 
 // ===================== Status Badge =====================
 const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
@@ -52,7 +31,9 @@ const statusConfig: Record<string, { label: string; bg: string; text: string }> 
 function StatusBadge({ status }: { status: string }) {
   const cfg = statusConfig[status] || { label: status, bg: "bg-slate-100", text: "text-slate-600" };
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}>
+    <span
+      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}
+    >
       {cfg.label}
     </span>
   );
@@ -60,30 +41,16 @@ function StatusBadge({ status }: { status: string }) {
 
 // ===================== Main Page =====================
 export default function StaffOrderHistoryPage() {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [loading, setLoading] = useState(true);
 
   // Modal state (view-only)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await axiosInstance.get("/orders");
-      setOrders(res.data);
-    } catch (err) {
-      console.error("Lỗi khi tải danh sách đơn hàng:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  // SWR: Dữ liệu cache hiển thị ngay, revalidate ngầm
+  const { orders, isLoading, isValidating } = useStaffOrdersData();
+  const { showOverlay, showToast, isSyncing } = useSmartOverlay(orders, isValidating, isLoading);
 
   // Lọc & tìm kiếm
   const filteredOrders = orders
@@ -115,13 +82,19 @@ export default function StaffOrderHistoryPage() {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("vi-VN", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   return (
     <div className="space-y-6">
+      <MutatingOverlay show={showOverlay} />
+      <DataUpdatedToast show={showToast} />
+      <SyncingIndicator show={isSyncing} />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -160,10 +133,7 @@ export default function StaffOrderHistoryPage() {
             <button
               key={f.key}
               onClick={() => setFilterStatus(f.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${filterStatus === f.key
-                ? "bg-amber-500 text-slate-900 shadow-md shadow-amber-500/20"
-                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${filterStatus === f.key ? "bg-amber-500 text-slate-900 shadow-md shadow-amber-500/20" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"}`}
             >
               {f.label}
             </button>
@@ -172,8 +142,9 @@ export default function StaffOrderHistoryPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {loading ? (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+        <MutatingOverlay show={showOverlay} />
+        {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -259,23 +230,18 @@ export default function StaffOrderHistoryPage() {
         )}
       </div>
 
-      {/* ===================== Modal Xem Chi Tiết (Read-Only) ===================== */}
+      {/* Modal Xem Chi Tiết (Read-Only) */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in">
-            {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-white">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-500 p-2 rounded-lg text-slate-900">
                   <ClipboardList size={20} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">
-                    Đơn hàng #{selectedOrder.id}
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {formatDate(selectedOrder.createdAt)}
-                  </p>
+                  <h3 className="text-xl font-bold text-slate-800">Đơn hàng #{selectedOrder.id}</h3>
+                  <p className="text-sm text-slate-500">{formatDate(selectedOrder.createdAt)}</p>
                 </div>
               </div>
               <button
@@ -285,31 +251,30 @@ export default function StaffOrderHistoryPage() {
                 <X size={20} />
               </button>
             </div>
-
-            {/* Modal Body */}
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
-              {/* Thông tin chung */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 rounded-xl p-3 space-y-1">
                   <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Bàn</p>
-                  <p className="font-semibold text-slate-800">{selectedOrder.cafeTable?.name || "—"}</p>
+                  <p className="font-semibold text-slate-800">
+                    {selectedOrder.cafeTable?.name || "—"}
+                  </p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Trạng thái</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">
+                    Trạng thái
+                  </p>
                   <StatusBadge status={selectedOrder.status} />
                 </div>
               </div>
-
-              {/* Thông tin nhân viên */}
               <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
                 <User size={18} className="text-blue-500" />
                 <div>
                   <p className="text-xs text-slate-500">Nhân viên lập đơn</p>
-                  <p className="font-semibold text-slate-800">{selectedOrder.account?.username || "N/A"}</p>
+                  <p className="font-semibold text-slate-800">
+                    {selectedOrder.account?.username || "N/A"}
+                  </p>
                 </div>
               </div>
-
-              {/* Chi tiết đơn hàng */}
               <div>
                 <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                   <Coffee size={16} className="text-amber-500" /> Chi tiết đơn hàng
@@ -322,7 +287,9 @@ export default function StaffOrderHistoryPage() {
                         className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl p-3"
                       >
                         <div className="flex-1">
-                          <p className="font-semibold text-slate-800 text-sm">{detail.product?.name || "Sản phẩm đã xóa"}</p>
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {detail.product?.name || "Sản phẩm đã xóa"}
+                          </p>
                           <p className="text-xs text-slate-500">
                             SL: {detail.quantity} × {detail.price.toLocaleString("vi-VN")} đ
                           </p>
@@ -337,8 +304,6 @@ export default function StaffOrderHistoryPage() {
                   )}
                 </div>
               </div>
-
-              {/* Tổng tiền */}
               <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <span className="flex items-center gap-2 text-slate-700 font-medium">
                   <DollarSign size={18} className="text-amber-600" /> Tổng tiền
@@ -348,8 +313,6 @@ export default function StaffOrderHistoryPage() {
                 </span>
               </div>
             </div>
-
-            {/* Modal Footer */}
             <div className="p-6 border-t border-slate-100 flex items-center justify-end bg-slate-50">
               <button
                 type="button"

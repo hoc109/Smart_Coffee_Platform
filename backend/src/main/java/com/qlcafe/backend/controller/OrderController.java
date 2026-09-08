@@ -2,17 +2,25 @@ package com.qlcafe.backend.controller;
 import com.qlcafe.backend.dto.OrderRequest;
 import com.qlcafe.backend.dto.OrderUpdateRequest;
 import com.qlcafe.backend.dto.MessageResponse;
+import com.qlcafe.backend.dto.TopProductDTO;
 import com.qlcafe.backend.service.OrderService;
+import com.qlcafe.backend.repository.OrderDetailRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
     private final OrderService orderService;
-    public OrderController(OrderService orderService) {
+    private final OrderDetailRepository orderDetailRepository;
+
+    public OrderController(OrderService orderService, OrderDetailRepository orderDetailRepository) {
         this.orderService = orderService;
+        this.orderDetailRepository = orderDetailRepository;
     }
 
     @PostMapping
@@ -50,6 +58,20 @@ public class OrderController {
     public ResponseEntity<?> deleteOrder(@PathVariable Integer id) {
         orderService.deleteOrder(id);
         return ResponseEntity.ok(new MessageResponse("Đã xóa đơn hàng #" + id + " thành công"));
+    }
+
+    @GetMapping("/top-products")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'STAFF')")
+    public ResponseEntity<List<TopProductDTO>> getTopSellingProducts() {
+        List<Object[]> rawData = orderDetailRepository.findTopSellingProducts();
+        List<TopProductDTO> result = rawData.stream()
+                .map(row -> new TopProductDTO(
+                        (String) row[0],
+                        ((Number) row[1]).longValue(),
+                        ((Number) row[2]).doubleValue()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 }
 

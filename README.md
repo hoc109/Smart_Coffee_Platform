@@ -51,10 +51,11 @@
 2. Mở file `.env.local` và thay thế giá trị `YOUR_GEMINI_API_KEY_HERE` bằng API Key thật của bạn lấy từ Google AI Studio.
 3. Cài đặt các thư viện (nếu bạn tải source code mới):
    ```bash
-   npm install
+   pnpm install
    ```
 4. Chạy lệnh khởi động máy chủ Frontend:
    ```bash
-   npm run dev
+   pnpm dev
    ```
 5. Mở trình duyệt và truy cập `http://localhost:3000/login` để đăng nhập.
+

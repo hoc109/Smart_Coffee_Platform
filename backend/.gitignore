@@ -36,6 +36,8 @@ build/
 application-prod.properties
 *.env
 .env*
+!.env.example
+!.env.sample
 
 ### Upload folder — Dùng Cloudinary trên production ###
 uploads/

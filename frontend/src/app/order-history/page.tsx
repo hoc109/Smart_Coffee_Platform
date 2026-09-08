@@ -1,46 +1,28 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import axiosInstance from "@/lib/axios";
 import {
-  ClipboardList, Search, Eye, Trash2, X, Save,
-  CalendarDays, User, Hash, DollarSign, Coffee
+  CalendarDays,
+  ClipboardList,
+  Coffee,
+  DollarSign,
+  Eye,
+  Hash,
+  Save,
+  Search,
+  Trash2,
+  User,
+  X,
 } from "lucide-react";
-
-// ===================== Interfaces =====================
-interface CafeTable {
-  id: number;
-  name: string;
-  status: string;
-}
-
-interface Account {
-  id: number;
-  username: string;
-  role: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-}
-
-interface OrderDetailItem {
-  id: number;
-  product: Product;
-  quantity: number;
-  price: number;
-}
-
-interface OrderItem {
-  id: number;
-  cafeTable: CafeTable | null;
-  account: Account | null;
-  orderDetails: OrderDetailItem[];
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-}
+import { useState } from "react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import {
+  DataUpdatedToast,
+  MutatingOverlay,
+  SyncingIndicator,
+  useSmartOverlay,
+} from "@/components/ui/LoadingOverlay";
+import type { OrderItem } from "@/hooks/useOrderHistoryData";
+import { useOrderHistoryData } from "@/hooks/useOrderHistoryData";
+import axiosInstance from "@/lib/axios";
 
 // ===================== Status Badge =====================
 const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
@@ -52,7 +34,9 @@ const statusConfig: Record<string, { label: string; bg: string; text: string }> 
 function StatusBadge({ status }: { status: string }) {
   const cfg = statusConfig[status] || { label: status, bg: "bg-slate-100", text: "text-slate-600" };
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}>
+    <span
+      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${cfg.bg} ${cfg.text}`}
+    >
       {cfg.label}
     </span>
   );
@@ -60,11 +44,8 @@ function StatusBadge({ status }: { status: string }) {
 
 // ===================== Main Page =====================
 export default function OrderHistoryPage() {
-  const [orders, setOrders] = useState<OrderItem[]>([]);
-  const [tables, setTables] = useState<CafeTable[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [loading, setLoading] = useState(true);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,25 +54,26 @@ export default function OrderHistoryPage() {
   const [editTableId, setEditTableId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [ordersRes, tablesRes] = await Promise.all([
-        axiosInstance.get("/orders"),
-        axiosInstance.get("/tables"),
-      ]);
-      setOrders(ordersRes.data);
-      setTables(tablesRes.data);
-    } catch (err) {
-      console.error("Lỗi khi tải danh sách đơn hàng:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Custom ConfirmModal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  // SWR + Smart Overlay
+  const { orders, tables, isLoading, isValidating, mutateOrders } = useOrderHistoryData();
+  const { showOverlay, showToast, isSyncing, startMutation, endMutation } = useSmartOverlay(
+    orders,
+    isValidating,
+    isLoading,
+  );
 
   // Lọc & tìm kiếm
   const filteredOrders = orders
@@ -121,46 +103,74 @@ export default function OrderHistoryPage() {
     }
   };
 
-  // Lưu thay đổi
+  // Lưu thay đổi — CÓ overlay + toast
   const handleSave = async () => {
     if (!selectedOrder) return;
     try {
       setSaving(true);
+      startMutation(); // Hiện overlay "Đang cập nhật..."
       await axiosInstance.put(`/orders/${selectedOrder.id}`, {
         status: editStatus,
         tableId: editTableId,
       });
       setIsModalOpen(false);
-      fetchOrders();
+      await mutateOrders();
+      endMutation();
     } catch {
+      endMutation();
       alert("Có lỗi khi cập nhật đơn hàng");
     } finally {
       setSaving(false);
     }
   };
 
-  // Xóa đơn hàng
-  const handleDelete = async (id: number) => {
-    if (!confirm(`Bạn có chắc muốn XÓA đơn hàng #${id}?\nHành động này không thể hoàn tác!`)) return;
-    try {
-      await axiosInstance.delete(`/orders/${id}`);
-      fetchOrders();
-    } catch {
-      alert("Không thể xóa đơn hàng. Vui lòng thử lại.");
-    }
+  // Xóa đơn hàng — CÓ overlay + toast
+  const handleDeleteClick = (id: number) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Xác nhận xóa đơn hàng",
+      message: `Bạn có chắc chắn muốn xóa đơn hàng #${id}? Hành động này không thể hoàn tác!`,
+      onConfirm: async () => {
+        try {
+          startMutation(); // Hiện overlay "Đang cập nhật..."
+          await axiosInstance.delete(`/orders/${id}`);
+          await mutateOrders();
+          endMutation();
+        } catch {
+          endMutation();
+          alert("Không thể xóa đơn hàng. Vui lòng thử lại.");
+        }
+      },
+    });
   };
 
   // Format thời gian
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("vi-VN", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   return (
     <div className="space-y-6">
+      {/* Toast thông báo sau khi cập nhật xong */}
+      <DataUpdatedToast show={showToast} />
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        type="danger"
+        confirmText="Xóa đơn hàng"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -199,10 +209,7 @@ export default function OrderHistoryPage() {
             <button
               key={f.key}
               onClick={() => setFilterStatus(f.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${filterStatus === f.key
-                ? "bg-amber-500 text-slate-900 shadow-md shadow-amber-500/20"
-                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${filterStatus === f.key ? "bg-amber-500 text-slate-900 shadow-md shadow-amber-500/20" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"}`}
             >
               {f.label}
             </button>
@@ -210,9 +217,11 @@ export default function OrderHistoryPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {loading ? (
+      {/* Table — relative để overlay phủ lên */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+        <MutatingOverlay show={showOverlay} />
+        <SyncingIndicator show={isSyncing} />
+        {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -280,7 +289,7 @@ export default function OrderHistoryPage() {
                           <Eye size={15} /> Xem
                         </button>
                         <button
-                          onClick={() => handleDelete(order.id)}
+                          onClick={() => handleDeleteClick(order.id)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                           title="Xóa"
                         >
@@ -307,23 +316,18 @@ export default function OrderHistoryPage() {
         )}
       </div>
 
-      {/* ===================== Modal Xem/Sửa ===================== */}
+      {/* Modal Xem/Sửa */}
       {isModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in">
-            {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-white">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-500 p-2 rounded-lg text-slate-900">
                   <ClipboardList size={20} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800">
-                    Đơn hàng #{selectedOrder.id}
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {formatDate(selectedOrder.createdAt)}
-                  </p>
+                  <h3 className="text-xl font-bold text-slate-800">Đơn hàng #{selectedOrder.id}</h3>
+                  <p className="text-sm text-slate-500">{formatDate(selectedOrder.createdAt)}</p>
                 </div>
               </div>
               <button
@@ -333,26 +337,31 @@ export default function OrderHistoryPage() {
                 <X size={20} />
               </button>
             </div>
-
-            {/* Modal Body */}
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
-              {/* Thông tin chung */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">Bàn</label>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    Bàn
+                  </label>
                   <select
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-medium text-sm"
                     value={editTableId || ""}
                     onChange={(e) => setEditTableId(Number(e.target.value))}
                   >
-                    <option value="" disabled>Chọn bàn</option>
+                    <option value="" disabled>
+                      Chọn bàn
+                    </option>
                     {tables.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">Trạng thái</label>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                    Trạng thái
+                  </label>
                   <select
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-medium text-sm"
                     value={editStatus}
@@ -364,17 +373,15 @@ export default function OrderHistoryPage() {
                   </select>
                 </div>
               </div>
-
-              {/* Thông tin nhân viên */}
               <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
                 <User size={18} className="text-blue-500" />
                 <div>
                   <p className="text-xs text-slate-500">Nhân viên lập đơn</p>
-                  <p className="font-semibold text-slate-800">{selectedOrder.account?.username || "N/A"}</p>
+                  <p className="font-semibold text-slate-800">
+                    {selectedOrder.account?.username || "N/A"}
+                  </p>
                 </div>
               </div>
-
-              {/* Chi tiết đơn hàng */}
               <div>
                 <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                   <Coffee size={16} className="text-amber-500" /> Chi tiết đơn hàng
@@ -387,7 +394,9 @@ export default function OrderHistoryPage() {
                         className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl p-3"
                       >
                         <div className="flex-1">
-                          <p className="font-semibold text-slate-800 text-sm">{detail.product?.name || "Sản phẩm đã xóa"}</p>
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {detail.product?.name || "Sản phẩm đã xóa"}
+                          </p>
                           <p className="text-xs text-slate-500">
                             SL: {detail.quantity} × {detail.price.toLocaleString("vi-VN")} đ
                           </p>
@@ -402,8 +411,6 @@ export default function OrderHistoryPage() {
                   )}
                 </div>
               </div>
-
-              {/* Tổng tiền */}
               <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <span className="flex items-center gap-2 text-slate-700 font-medium">
                   <DollarSign size={18} className="text-amber-600" /> Tổng tiền
@@ -413,8 +420,6 @@ export default function OrderHistoryPage() {
                 </span>
               </div>
             </div>
-
-            {/* Modal Footer */}
             <div className="p-6 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50">
               <button
                 type="button"

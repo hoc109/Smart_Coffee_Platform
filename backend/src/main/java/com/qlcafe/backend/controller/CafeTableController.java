@@ -26,4 +26,16 @@ public class CafeTableController {
     public ResponseEntity<?> updateStatus(@PathVariable Integer id, @RequestParam String status) {
         return ResponseEntity.ok(cafeTableService.updateTableStatus(id, status));
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'STAFF')")
+    public ResponseEntity<?> updateTable(@PathVariable Integer id, @RequestBody CafeTable tableDetails) {
+        return ResponseEntity.ok(cafeTableService.updateTable(id, tableDetails.getName()));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'STAFF')")
+    public ResponseEntity<?> deleteTable(@PathVariable Integer id) {
+        return ResponseEntity.ok(cafeTableService.deleteTable(id));
+    }
 }

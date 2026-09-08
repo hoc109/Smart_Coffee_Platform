@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { Bot, Loader2, Send, Sparkles, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import axiosInstance from "@/lib/axios";
-import { Send, Bot, User, Loader2, Sparkles } from "lucide-react";
-import ReactMarkdown from 'react-markdown';
 
 // 1. Định nghĩa các interface để loại bỏ hoàn toàn 'any'
 interface Product {
@@ -13,28 +13,55 @@ interface Product {
   };
 }
 
+interface OrderDetailItem {
+  product: { name: string };
+  quantity: number;
+  price: number;
+}
+
 interface Order {
+  id: number;
   status: string;
   totalAmount: number;
   createdAt: string;
+  orderDetails?: OrderDetailItem[];
+  cafeTable?: { name: string };
+}
+
+interface TopProduct {
+  productName: string;
+  totalQuantity: number;
+  totalRevenue: number;
 }
 
 interface ContextData {
   totalRevenue: number;
   totalOrders: number;
   totalProducts: number;
-  ordersDetails: { date: string; total: number }[];
+  topSellingProducts: { name: string; totalQuantitySold: number; totalRevenue: number }[];
+  recentOrdersWithDetails: {
+    id: number;
+    date: string;
+    total: number;
+    status: string;
+    table: string;
+    items: { product: string; qty: number; price: number }[];
+  }[];
   products: { name: string; price: number; category: string }[];
 }
 
 interface Message {
-  role: 'user' | 'ai';
+  role: "user" | "ai";
   content: string;
 }
 
 export default function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'ai', content: 'Xin chào! Tôi là Trợ lý ảo AI của Coffee Chill. Tôi có thể phân tích doanh thu, tồn kho và tư vấn chiến lược kinh doanh cho bạn. Bạn muốn tôi giúp gì hôm nay?' }
+    {
+      role: "ai",
+      content:
+        "Xin chào! Tôi là Trợ lý ảo AI của Coffee Chill. Tôi có thể phân tích doanh thu, tồn kho và tư vấn chiến lược kinh doanh cho bạn. Bạn muốn tôi giúp gì hôm nay?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,12 +78,12 @@ export default function AIAssistantPage() {
   useEffect(() => {
     const fetchContext = async () => {
       try {
-        const [ordersRes, productsRes] = await Promise.all([
+        const [ordersRes, productsRes, topProductsRes] = await Promise.all([
           axiosInstance.get("/orders"),
-          axiosInstance.get("/products?size=100")
+          axiosInstance.get("/products?size=100"),
+          axiosInstance.get("/orders/top-products"),
         ]);
 
-        // 3. Sử dụng interface Order và Product thay cho 'any'
         const paidOrders = ordersRes.data.filter((o: Order) => o.status === "PAID");
         const totalRev = paidOrders.reduce((sum: number, o: Order) => sum + o.totalAmount, 0);
 
@@ -64,15 +91,28 @@ export default function AIAssistantPage() {
           totalRevenue: totalRev,
           totalOrders: paidOrders.length,
           totalProducts: productsRes.data.content?.length || 0,
-          ordersDetails: paidOrders.map((o: Order) => ({
+          topSellingProducts: (topProductsRes.data as TopProduct[]).map((p) => ({
+            name: p.productName,
+            totalQuantitySold: p.totalQuantity,
+            totalRevenue: p.totalRevenue,
+          })),
+          recentOrdersWithDetails: paidOrders.slice(0, 50).map((o: Order) => ({
+            id: o.id,
             date: o.createdAt,
-            total: o.totalAmount
+            total: o.totalAmount,
+            status: o.status,
+            table: o.cafeTable?.name || "N/A",
+            items: (o.orderDetails || []).map((d) => ({
+              product: d.product?.name || "Unknown",
+              qty: d.quantity,
+              price: d.price,
+            })),
           })),
           products: productsRes.data.content?.map((p: Product) => ({
             name: p.name,
             price: p.price,
-            category: p.category.name
-          }))
+            category: p.category.name,
+          })),
         });
       } catch (err) {
         console.error("Failed to fetch context data", err);
@@ -86,7 +126,7 @@ export default function AIAssistantPage() {
 
     const userMsg = input.trim();
     setInput("");
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
 
     try {
@@ -96,18 +136,25 @@ export default function AIAssistantPage() {
         body: JSON.stringify({
           message: userMsg,
           contextData: contextData,
-          history: messages
-        })
+          history: messages,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error);
 
-      setMessages(prev => [...prev, { role: 'ai', content: data.reply }]);
+      setMessages((prev) => [...prev, { role: "ai", content: data.reply }]);
     } catch {
       // 4. Lược bỏ '(err: any)' vì không sử dụng đến
-      setMessages(prev => [...prev, { role: 'ai', content: "Xin lỗi, đã có lỗi xảy ra. Hãy kiểm tra lại kết nối hoặc đảm bảo bạn đã thêm biến môi trường **GEMINI_API_KEY** trong file `.env.local` của Frontend." }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content:
+            "Xin lỗi, đã có lỗi xảy ra. Hãy kiểm tra lại kết nối hoặc đảm bảo bạn đã thêm biến môi trường **GEMINI_API_KEY** trong file `.env.local` của Frontend.",
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -121,17 +168,23 @@ export default function AIAssistantPage() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-slate-800">Trợ lý AI Kinh doanh</h2>
-          <p className="text-sm text-slate-500 font-medium">Tích hợp Google Gemini để phân tích dữ liệu thực tế</p>
+          <p className="text-sm text-slate-500 font-medium">
+            Tích hợp Google Gemini để phân tích dữ liệu thực tế
+          </p>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
         {messages.map((msg, idx) => (
-          <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-amber-500 text-slate-900'}`}>
-              {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
+          <div key={idx} className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === "user" ? "bg-slate-800 text-white" : "bg-amber-500 text-slate-900"}`}
+            >
+              {msg.role === "user" ? <User size={20} /> : <Bot size={20} />}
             </div>
-            <div className={`px-5 py-3.5 rounded-2xl max-w-[75%] ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm'}`}>
+            <div
+              className={`px-5 py-3.5 rounded-2xl max-w-[75%] ${msg.role === "user" ? "bg-slate-800 text-white rounded-tr-none" : "bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm"}`}
+            >
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
               </div>
@@ -145,7 +198,9 @@ export default function AIAssistantPage() {
             </div>
             <div className="px-5 py-3.5 rounded-2xl bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm flex items-center gap-2">
               <Loader2 className="animate-spin text-amber-500" size={18} />
-              <span className="text-sm font-medium">Trợ lý đang suy nghĩ và phân tích dữ liệu...</span>
+              <span className="text-sm font-medium">
+                Trợ lý đang suy nghĩ và phân tích dữ liệu.....
+              </span>
             </div>
           </div>
         )}
@@ -159,8 +214,8 @@ export default function AIAssistantPage() {
             className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all pr-14"
             placeholder="Bạn muốn hỏi gì về tình hình kinh doanh của quán?"
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
           />
           <button
             onClick={handleSend}

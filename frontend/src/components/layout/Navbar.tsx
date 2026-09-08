@@ -1,7 +1,7 @@
 "use client";
+import Cookies from "js-cookie";
 import { Bell, User } from "lucide-react";
 import { usePathname } from "next/navigation";
-import Cookies from "js-cookie";
 import { useEffect, useState } from "react";
 
 export default function Navbar() {
@@ -23,18 +23,24 @@ export default function Navbar() {
 
   return (
     <header className="relative h-20 bg-white/50 backdrop-blur-md border-b border-slate-200 flex items-center justify-end px-8 sticky top-0 z-50">
-
       {/* Phần Tiêu đề được ép ra chính giữa tuyệt đối */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
         <h2 className="text-3xl font-bold text-slate-800 text-center">
-          {pathname === "/dashboard" ? "Welcome to Dashboard" :
-            pathname === "/tables" ? "Quản lý bàn" :
-              pathname === "/orders" ? "Đặt hàng" :
-                pathname === "/products" ? "Danh sách các sản phẩm" :
-                  pathname === "/accounts" ? "Danh sách nhân viên" :
-                    pathname === "/order-history" ? "Lịch sử đặt hàng" :
-                      pathname === "/staff-orders" ? "Danh sách đơn hàng" :
-                        "AI-Assistant"}
+          {pathname === "/dashboard"
+            ? "Welcome to Dashboard"
+            : pathname === "/tables"
+              ? "Quản lý bàn"
+              : pathname === "/orders"
+                ? "Đặt hàng"
+                : pathname === "/products"
+                  ? "Danh sách các sản phẩm"
+                  : pathname === "/accounts"
+                    ? "Danh sách nhân viên"
+                    : pathname === "/order-history"
+                      ? "Lịch sử đặt hàng"
+                      : pathname === "/staff-orders"
+                        ? "Danh sách đơn hàng"
+                        : "AI-Assistant"}
         </h2>
       </div>
 
@@ -51,7 +57,9 @@ export default function Navbar() {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-700">Hi,{username}</p>
-            <p className="text-xs text-slate-500 font-medium">{role === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'}</p>
+            <p className="text-xs text-slate-500 font-medium">
+              {role === "ADMIN" ? "Quản trị viên" : "Nhân viên"}
+            </p>
           </div>
         </div>
       </div>

@@ -13,19 +13,70 @@ frontend/.next/
 frontend/out/
 frontend/build/
 frontend/.vercel/
+frontend/.turbo/
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
+.pnpm-store/
+coverage/
+test-results/
+playwright-report/
 
 # ===== Thông tin nhạy cảm =====
 **/.env
 **/.env.*
-**/application.properties
-**/application-prod.properties
+!**/.env.example
+!**/.env.sample
+**/.envrc
+**/.direnv/
+**/secrets/
+**/.secrets/
+**/application*.properties
+**/application*.yml
+**/application*.yaml
+!**/application-example.properties
+!**/application-example.yml
+!**/application-example.yaml
+**/credentials*.json
+**/service-account*.json
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # ===== Upload folder =====
 uploads/
 
-# ===== IDE & Hệ thống =====
+# ===== Log, runtime và dữ liệu cục bộ =====
+*.log
+logs/
+*.pid
+*.pid.lock
+hs_err_pid*
+replay_pid*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+*.mdf
+*.ldf
+
+# ===== IDE, hệ điều hành và file tạm =====
 .vscode/
+.idea/
+*.iws
+*.iml
+*.ipr
 .DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.swp
+*~
 *.pem
+.codegraph/
+.codegraph-cache/
