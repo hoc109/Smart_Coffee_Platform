@@ -1,61 +1,189 @@
-# Website Quản Lý Quán Cà Phê
+# ☕ Website Quản Lý Quán Cà Phê (QLCafe)
 
--Dự án Hệ thống Website Quản lý quán cà phê đã được triển khai hoàn tất toàn bộ từ Database, Backend, Frontend cho đến Tích hợp Trí tuệ Nhân tạo. 
--Hệ thống bao gồm các tính năng quản lý sản phẩm, sơ đồ bàn, đặt hàng (POS), thanh toán và tích hợp trợ lý ảo AI để phân tích kinh doanh.
+Hệ thống Website quản lý quán cà phê full-stack, bao gồm **Backend REST API**, **Frontend SPA** và **Trợ lý ảo AI** tích hợp phân tích kinh doanh. Hỗ trợ triển khai production trên **Render.com** (Backend) và **Vercel** (Frontend).
 
-## Công nghệ sử dụng:
-- **Frontend**: Next.js (App Router), Tailwind CSS, Axios, Lucide React, Chart.js.
-- **Backend**: Java Spring Boot 3.x, Spring Security (JWT), Spring Data JPA, REST API.
-- **Database**: SQL Server.
-- **AI**: Google Gemini API (`@google/generative-ai` với model `gemini-2.5-flash`).
+---
 
-## 📁 Cấu trúc thư mục:
-- `backend/`: Chứa mã nguồn Spring Boot. Đã được cấu hình tự động tạo bảng (JPA) và Auto-hash mật khẩu bằng BCrypt.
-- `frontend/`: Chứa mã nguồn Next.js.
-- `database/init.sql`: File SQL script gốc dùng để khởi tạo Database.
+## 🛠️ Công nghệ sử dụng
 
-## 📂 Cấu trúc thư mục chính:
-- `src/app/`: Chứa định tuyến các trang (Pages) của hệ thống.
-  - `/login`: Giao diện đăng nhập bảo mật.
-  - `/dashboard`: Bảng điều khiển thống kê tổng quan.
-  - `/products`: Màn hình quản lý sản phẩm.
-  - `/tables`: Quản lý sơ đồ bàn.
-  - `/orders`: Màn hình POS gọi đồ uống và thanh toán.
-  - `/orders-history`: Trang quản lý lịch sử đơn hàng.
-  - `/ai-assistant`: Trợ lý ảo AI phân tích kinh doanh.
-  - `/api/chat/route.ts`: API Route trung gian gọi tới Google Gemini.
-- `src/components/layout/`: Chứa cấu trúc Giao diện dùng chung (`Sidebar`, `Navbar`, `ClientLayout`).
-- `src/lib/`: Chứa các tiện ích, đặc biệt là cấu hình `axios.ts` xử lý việc gắn Token vào Headers một cách tự động.
+| Lớp | Công nghệ |
+|---|---|
+| **Frontend** | Next.js 16 (App Router + Turbopack), React 19, Tailwind CSS v4, Shadcn/ui, TanStack Query v5, Zustand, React Hook Form + Zod, Chart.js, Lucide React |
+| **Backend** | Java 21, Spring Boot 3.2.5, Spring Security (JWT + Google OAuth2), Spring Data JPA, Lombok, Cloudinary SDK |
+| **Database** | SQL Server (Somee.com cho production) |
+| **AI** | Google Gemini API (`@google/generative-ai`) |
+| **Tooling** | pnpm (Frontend), Maven (Backend), Biome (Lint + Format), TypeScript (`tsc --noEmit`) |
+| **Deploy** | Docker (Backend), Render.com (Backend), Vercel (Frontend) |
 
-## ✨ Các tính năng nổi bật:
-- **Bảo mật**: Authentication và Phân quyền (ADMIN, STAFF) bằng JWT (Json Web Token) an toàn.
-- **Giao diện (UI/UX)**: Thiết kế chuẩn Aesthetic, tối đa hóa trải nghiệm người dùng với Glassmorphism, Gradient và các hiệu ứng Animations hiện đại. Tự động bảo vệ route dựa trên token.
-- **Dashboard Thống kê**: Tích hợp Chart.js hiển thị biểu đồ doanh thu trực quan, thẻ thông tin tổng quan sinh động.
-- **Quản lý Sản phẩm**: Liệt kê dạng bảng hiện đại, hỗ trợ popup Upload ảnh động, thao tác thêm/sửa/xoá (Soft delete).
-- **Quản lý Bàn & Đặt đồ (POS)**: Hệ thống tối ưu hóa luồng gọi món (chia màn hình 2 cột: menu và giỏ hàng). Sơ đồ bàn hiển thị màu sắc thông minh (Hiệu ứng nhịp đập Pulse đối với bàn đang có khách).
-- **Trợ lý ảo AI**: Tích hợp sức mạnh của LLM (Gemini 3.1 Pro). Trợ lý AI có khả năng "đọc" dữ liệu Database (doanh thu, đơn hàng, mặt hàng) để chủ động phân tích và đưa ra lời khuyên kinh doanh sâu sắc dựa trên số liệu thực tế.
+---
 
-## 🔑 Hướng dẫn chạy dự án
+## 📁 Cấu trúc thư mục gốc
 
-### 1. Khởi động Backend (Spring Boot)
-1. Mở terminal tại thư mục `backend`.
-2. Đảm bảo cấu hình database trong `src/main/resources/application.properties` trùng khớp với SQL Server của bạn.
-3. Chạy lệnh để biên dịch và khởi động:
+```
+Web QLCafe/
+├── backend/          # Spring Boot REST API
+├── frontend/         # Next.js SPA
+├── database/         # SQL scripts khởi tạo Database
+│   ├── init.sql      # Script gốc (local dev)
+│   └── init-db.sql   # Script production (Somee.com)
+├── uploads/          # Ảnh sản phẩm upload local (dev)
+└── README.md
+```
+
+---
+
+## 📂 Cấu trúc Frontend (`frontend/src/`)
+
+```
+src/
+├── app/                        # Next.js App Router — Pages
+│   ├── login/                  # Đăng nhập (Username/Password + Google OAuth2)
+│   ├── dashboard/              # Bảng điều khiển thống kê doanh thu
+│   ├── products/               # Quản lý sản phẩm (CRUD + upload ảnh Cloudinary)
+│   ├── tables/                 # Quản lý sơ đồ bàn
+│   ├── orders/                 # POS — Gọi món & Thanh toán (Admin)
+│   ├── staff-orders/           # POS cho nhân viên (Staff)
+│   ├── order-history/          # Lịch sử đơn hàng
+│   ├── accounts/               # Quản lý tài khoản (Admin)
+│   ├── ai-assistant/           # Trợ lý ảo AI phân tích kinh doanh
+│   └── api/chat/route.ts       # API Route trung gian gọi Google Gemini
+├── components/
+│   ├── auth/                   # GoogleSignInButton
+│   ├── layout/                 # Sidebar, Navbar, ClientLayout
+│   ├── providers/              # QueryProvider (TanStack Query)
+│   └── ui/                     # Shadcn/ui primitives (Button, Card, Input, Modal...)
+├── hooks/                      # Custom hooks data-fetching (TanStack Query)
+├── lib/                        # Tiện ích: api-client.ts, axios.ts, utils.ts (cn())
+├── schemas/                    # Zod validation schemas
+└── stores/                     # Zustand stores (useAuthStore)
+```
+
+---
+
+## 📂 Cấu trúc Backend (`backend/src/.../com/qlcafe/backend/`)
+
+```
+com.qlcafe.backend/
+├── config/                     # Cấu hình ứng dụng
+│   ├── SecurityConfig          # Spring Security + CORS
+│   ├── CloudinaryConfig        # Kết nối Cloudinary
+│   ├── DataInitializer         # Auto-hash mật khẩu BCrypt khi khởi động
+│   └── WebMvcConfig            # Serve static files (uploads/)
+├── controller/                 # REST Controllers
+│   ├── AuthController          # POST /api/auth/login, /api/auth/google
+│   ├── ProductController       # CRUD /api/products
+│   ├── CategoryController      # CRUD /api/categories
+│   ├── CafeTableController     # CRUD /api/tables
+│   ├── OrderController         # CRUD /api/orders
+│   ├── AccountController       # CRUD /api/accounts
+│   ├── RevenueController       # GET /api/revenue (thống kê)
+│   └── GlobalExceptionHandler  # Xử lý lỗi tập trung
+├── dto/                        # Data Transfer Objects
+├── entity/                     # JPA Entities (Account, Product, Order, ...)
+├── repository/                 # Spring Data JPA Repositories
+├── security/                   # JWT Filter, Token Provider, UserDetails
+└── service/                    # Business Logic Services
+```
+
+---
+
+## ✨ Các tính năng nổi bật
+
+- **🔐 Bảo mật**: Authentication JWT + Google OAuth2 ID Token. Phân quyền `ADMIN` / `STAFF` tự động bảo vệ route.
+- **🎨 Giao diện**: Thiết kế Glassmorphism + Gradient + Animations hiện đại. Responsive, hỗ trợ bàn phím.
+- **📊 Dashboard**: Biểu đồ doanh thu Chart.js, thẻ thống kê tổng quan, modal chi tiết doanh thu.
+- **📦 Quản lý Sản phẩm**: Bảng dữ liệu, upload ảnh lên **Cloudinary** (không mất khi restart), Soft Delete.
+- **🪑 Sơ đồ Bàn & POS**: Chia màn hình 2 cột (menu + giỏ hàng). Hiệu ứng nhịp đập Pulse cho bàn có khách. Giao diện POS riêng cho Staff.
+- **👤 Quản lý Tài khoản**: Admin tạo/sửa/xoá tài khoản nhân viên, phân quyền ADMIN/STAFF.
+- **🤖 Trợ lý AI**: Tích hợp Google Gemini — AI đọc dữ liệu doanh thu, đơn hàng từ Database để phân tích và đưa lời khuyên kinh doanh.
+
+---
+
+## 🔑 Hướng dẫn chạy dự án (Local)
+
+### Yêu cầu hệ thống
+
+- **Java** 21+
+- **Node.js** 20+
+- **pnpm** (bắt buộc, không dùng npm/yarn)
+- **SQL Server** (local hoặc remote)
+
+### 1. Khởi tạo Database
+
+1. Mở SQL Server Management Studio.
+2. Chạy file `database/init.sql` để tạo bảng và dữ liệu mẫu.
+
+### 2. Khởi động Backend (Spring Boot)
+
+1. Mở terminal tại thư mục `backend/`.
+2. Cấu hình kết nối DB trong `src/main/resources/application.properties`:
+   - `spring.datasource.url` — Connection string SQL Server
+   - `spring.datasource.username` / `password`
+3. Chạy lệnh:
    ```bash
    ./mvnw spring-boot:run
    ```
-   > **Lưu ý:** Lần đầu khởi động, hệ thống sẽ tự động quét và tự động mã hoá chuẩn BCrypt cho mật khẩu Admin (`Admin109205@`) thay cho chuỗi thuần trong file SQL.
+   > **Lưu ý:** Lần đầu khởi động, `DataInitializer` tự động mã hoá BCrypt cho mật khẩu Admin.
 
-### 2. Khởi động Frontend (Next.js)
-1. Mở terminal tại thư mục `frontend`.
-2. Mở file `.env.local` và thay thế giá trị `YOUR_GEMINI_API_KEY_HERE` bằng API Key thật của bạn lấy từ Google AI Studio.
-3. Cài đặt các thư viện (nếu bạn tải source code mới):
+### 3. Khởi động Frontend (Next.js)
+
+1. Mở terminal tại thư mục `frontend/`.
+2. Tạo/chỉnh file `.env.local`:
+   ```env
+   GEMINI_API_KEY=<your-gemini-api-key>
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=<your-google-client-id>
+   ```
+3. Cài đặt dependencies:
    ```bash
    pnpm install
    ```
-4. Chạy lệnh khởi động máy chủ Frontend:
+4. Chạy dev server:
    ```bash
    pnpm dev
    ```
-5. Mở trình duyệt và truy cập `http://localhost:3000/login` để đăng nhập.
+5. Truy cập `http://localhost:3000/login` để đăng nhập.
 
+> **Tài khoản mặc định:** `admin` / `admin123`
+
+---
+
+## 🐳 Docker (Backend)
+
+Backend có sẵn `Dockerfile` multi-stage build (Maven build → JRE runtime):
+
+```bash
+cd backend
+docker build -t qlcafe-backend .
+docker run -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:sqlserver://host:1433;databaseName=QLCafe \
+  -e SPRING_DATASOURCE_USERNAME=sa \
+  -e SPRING_DATASOURCE_PASSWORD=yourpassword \
+  -e CLOUDINARY_CLOUD_NAME=your-cloud-name \
+  -e CLOUDINARY_API_KEY=your-api-key \
+  -e CLOUDINARY_API_SECRET=your-api-secret \
+  qlcafe-backend
+```
+
+---
+
+## 🚀 Deploy Production
+
+| Thành phần | Nền tảng | URL |
+|---|---|---|
+| Backend API | Render.com | `https://qlcafe-backend.onrender.com` |
+| Database | Somee.com (SQL Server) | — |
+| Frontend | Vercel / tùy chọn | — |
+
+Sử dụng `database/init-db.sql` để khởi tạo schema trên Somee.com.
+
+---
+
+## 📜 Scripts hữu ích (Frontend)
+
+| Lệnh | Mô tả |
+|---|---|
+| `pnpm dev` | Chạy dev server (Turbopack) |
+| `pnpm build` | Build production |
+| `pnpm lint` | Kiểm tra code với Biome |
+| `pnpm format` | Format code với Biome |
+| `pnpm typecheck` | Kiểm tra TypeScript (`tsc --noEmit`) |
